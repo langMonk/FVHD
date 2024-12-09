@@ -1,8 +1,12 @@
+import ssl
 from sklearn.datasets import fetch_openml
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from ivhd import IVHD, IVHDGrad
+
+
+ssl._create_default_https_context = ssl._create_unverified_context
 
 
 def load_dataset(dataset_name):
