@@ -21,6 +21,7 @@ class IVHD:
             eta: float = 0.1,
             device: str = "cpu",
             graph_file: str = '',
+            l1_steps: int = 0,
             autoadapt=False,
             velocity_limit=False,
             verbose=True) -> None:
@@ -37,7 +38,7 @@ class IVHD:
         self.device = device
         self.verbose = verbose
         self.graph_file = graph_file
-
+        self.l1_steps = l1_steps
         self.autoadapt = autoadapt
         self.buffer_len = 10
         self.curr_max_velo = torch.tensor(([0.0]*self.buffer_len))
@@ -83,14 +84,26 @@ class IVHD:
                 if i % 100 == 0:
                     print()
 
+        for i in range(self.l1_steps):
+            loss = self.__optimizer_step(optimizer, NN, RN, l1_dist=True)
+            if loss < 1e-10:
+                return self.x[:, 0].detach()
+            if self.verbose:
+                print(f"\rl1 {i} loss: {loss.item()}, X: {self.x[0]}", end="")
+                if i % 100 == 0:
+                    print()
         return self.x[:, 0].detach().cpu().numpy()
 
-    def __optimizer_step(self, optimizer, NN, RN) -> np.ndarray:
+    def __optimizer_step(self, optimizer, NN, RN, l1_dist=False) -> np.ndarray:
         optimizer.zero_grad()
         nn_diffs = self.x - torch.index_select(self.x, 0, NN).view(self.x.shape[0], -1, self.n_components)
         rn_diffs = self.x - torch.index_select(self.x, 0, RN).view(self.x.shape[0], -1, self.n_components)
-        nn_dist = torch.sqrt(torch.sum((nn_diffs + 1e-8)*(nn_diffs + 1e-8), dim=-1, keepdim=True))
-        rn_dist = torch.sqrt(torch.sum((rn_diffs + 1e-8)*(rn_diffs + 1e-8), dim=-1, keepdim=True))
+        if l1_dist:
+            nn_dist = torch.sum(torch.abs((nn_diffs)), dim=-1, keepdim=True)
+            rn_dist = torch.sum(torch.abs((rn_diffs)), dim=-1, keepdim=True)
+        else:
+            nn_dist = torch.sqrt(torch.sum((nn_diffs+1e-8)*(nn_diffs+1e-8), dim=-1, keepdim=True))
+            rn_dist = torch.sqrt(torch.sum((rn_diffs+1e-8)*(rn_diffs+1e-8), dim=-1, keepdim=True))
 
         loss = torch.mean(nn_dist * nn_dist) + self.c * torch.mean((1 - rn_dist) * (1 - rn_dist))
         loss.backward()
@@ -115,14 +128,22 @@ class IVHD:
             loss = self.__force_directed_step(NN, RN, NN_new, RN_new)
             if self.verbose and i % 100 == 0:
                 print(f"\r{i} loss: {loss.item()}")
+        for i in range(self.l1_steps):
+            loss = self.__force_directed_step(NN, RN, NN_new, RN_new, l1_dist=True)
+            if self.verbose and i % 100 == 0:
+                print(f"\rl1 {self.epochs + i} loss: {loss.item()}")
 
         return self.x[:, 0].cpu().numpy()
 
-    def __force_directed_step(self, NN, RN, NN_new, RN_new):
+    def __force_directed_step(self, NN, RN, NN_new, RN_new, l1_dist=False):
         nn_diffs = self.x - torch.index_select(self.x, 0, NN).view(self.x.shape[0], -1, self.n_components)
         rn_diffs = self.x - torch.index_select(self.x, 0, RN).view(self.x.shape[0], -1, self.n_components)
-        nn_dist = torch.sqrt(torch.sum((nn_diffs+1e-8)*(nn_diffs+1e-8), dim=-1, keepdim=True))
-        rn_dist = torch.sqrt(torch.sum((rn_diffs+1e-8)*(rn_diffs+1e-8), dim=-1, keepdim=True))
+        if l1_dist:
+            nn_dist = torch.sum(torch.abs((nn_diffs+1e-8)), dim=-1, keepdim=True)
+            rn_dist = torch.sum(torch.abs((rn_diffs+1e-8)), dim=-1, keepdim=True)
+        else:
+            nn_dist = torch.sqrt(torch.sum((nn_diffs+1e-8)*(nn_diffs+1e-8), dim=-1, keepdim=True))
+            rn_dist = torch.sqrt(torch.sum((rn_diffs+1e-8)*(rn_diffs+1e-8), dim=-1, keepdim=True))
 
         f_nn, f_rn = self.__compute_forces(rn_dist, nn_diffs, rn_diffs, NN_new, RN_new)
 

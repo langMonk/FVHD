@@ -16,7 +16,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import MinMaxScaler
 from torchvision.datasets import EMNIST, MNIST
 from torch.optim import Adam, Adagrad
-
+from gensim.models import Word2Vec, KeyedVectors
+from matplotlib.colors import LinearSegmentedColormap
 
 def run(
     dataset:Literal["mnist", "emnist", "rcv", "amazon"],
@@ -37,6 +38,11 @@ def run(
         )
 
     match dataset:
+        case "google":
+            data = KeyedVectors.load_word2vec_format('./GoogleNews-vectors-negative300.bin', binary=True)
+            pca = PCA(n_components=30)
+            X = torch.Tensor(pca.fit_transform(data.vectors))
+            Y = torch.zeros(X.shape[0])
         case "mnist":
             data = MNIST("mnist", train=True, download=True)
             X = data.data
@@ -91,7 +97,8 @@ def run(
                 optimizer=None,
                 # optimizer=Adam,
                 optimizer_kwargs={"lr": 0.1},
-                epochs=8_000,
+                epochs=2_000,
+                l1_steps=100,
                 device=device,
                 velocity_limit=False,
                 autoadapt=False,
@@ -151,21 +158,30 @@ def run(
     with open(str(Path(save_dir, "timing.txt")), "w") as f:
         f.write(str(end - start))
 
-    fig = plt.figure(figsize=(16, 8))
-    plt.title(f"{dataset} 2d visualization")
-
+    plt.figure(figsize=(10, 10))
     sns.scatterplot(
         x=x[:, 0],
         y=x[:, 1],
         hue=Y,
-        s=2,
+        s=1,
         palette=sns.color_palette("tab10", torch.unique(Y).size(0)),
     )
     plt.legend()
     if interactive:
         plt.show()
     else:
-        plt.savefig(str(Path(save_dir, "image.png")))
+        plt.savefig(str(Path(save_dir, "image_1.png")))
+    
+    plt.clf()
+
+    plt.figure(figsize=(10, 10))
+    heatmap, xedges, yedges = np.histogram2d(x[:, 0], x[:, 1], bins=(700, 700))
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+    plt.imshow(heatmap.T, extent=extent, origin='lower', cmap=LinearSegmentedColormap.from_list("white_to_orange", ["white", "orange"]))
+    if interactive:
+        plt.show()
+    else:
+        plt.savefig(str(Path(save_dir, "image_2.png")))
 
 
 if __name__ == "__main__":
@@ -176,7 +192,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset",
         type=str,
-        choices=["mnist", "emnist", "20ng", "higgs"],
+        choices=["mnist", "emnist", "20ng", "higgs", "google"],
         required=True,
         help="Specify the dataset to use. Choices are: 'mnist', 'emnist', '20ng', 'higgs'.",
     )
