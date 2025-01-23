@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "fvhd"
+version = "0.1.0"
+description = "Fast visualization of high-dimensional data"
+authors = ["Bartosz Minch <minch@agh.edu.pl>, Filip Ręka <filipreka@agh.edu.pl>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.12.0,<3.13"
+torch = "^2.5.1"
+numpy = "^2.2.2"
+pandas = "^2.2.3"
+scikit-learn = "^1.6.1"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.4"
+black = "^24.10.0"
+isort = "^5.13.2"
+autoflake = "^2.3.1"
+
+
+[tool.poetry.group.dev.dependencies]
+torchvision = "^0.20.1"
+matplotlib = "^3.10.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
