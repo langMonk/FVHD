@@ -1,8 +1,8 @@
-# IVHD PyTorch
+# FVHD PyTorch
 
-Implementation of IVHD method in PyTorch
+Implementation of FVHD method in PyTorch
 
-About IVHD method: https://arxiv.org/abs/1902.01108
+About FVHD method: https://arxiv.org/abs/1902.01108
 
 to install:
 ```bash

@@ -1,13 +1,14 @@
 import struct
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-from typing import Optional
+
 
 class Graph:
     def __init__(self):
-        self.indexes : Optional[np.ndarray] = None
-        self.distances : Optional[np.ndarray] = None
+        self.indexes: Optional[np.ndarray] = None
+        self.distances: Optional[np.ndarray] = None
 
     def get_neighbors(self, n: int) -> np.ndarray:
         return self.indexes[n]
@@ -25,7 +26,7 @@ class Graph:
 
             k = 0
             j = 0
-            for i in range(0, data_count*overall_nn_count):
+            for i in range(0, data_count * overall_nn_count):
                 data = int.from_bytes(f.read(8), byteorder="little")
                 distance = struct.unpack("f", f.read(4))[0]
                 if i > 0 and i % overall_nn_count == 0:

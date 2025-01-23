@@ -1,22 +1,27 @@
 import struct
+import sys
+from datetime import datetime
 
 import faiss
-import sys
-import pandas as pd
 import numpy as np
-
-from datetime import datetime
+import pandas as pd
 from numpy import sqrt
 
 
 class FaissGenerator:
-    def __init__(self, df: pd.DataFrame, cosine_metric: bool = False, binary_metric: bool = False, device='auto'):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        cosine_metric: bool = False,
+        binary_metric: bool = False,
+        device="auto",
+    ):
         self.indexes = []
         self.distances = []
         self.nn = None
-        self.cosine_metric = cosine_metric,
-        self.binary_metric = binary_metric,
-        if device in ['cuda', 'auto'] and (num_gpus := faiss.get_num_gpus()) >= 1:
+        self.cosine_metric = (cosine_metric,)
+        self.binary_metric = (binary_metric,)
+        if device in ["cuda", "auto"] and (num_gpus := faiss.get_num_gpus()) >= 1:
             print(f"Faiss found {num_gpus} GPU(s). We only need one :D")
             # For emnist gpu is 10x faster (4s compared to 40s)
             self.__gpu_res = faiss.StandardGpuResources()
@@ -72,13 +77,13 @@ class FaissGenerator:
             self.distances = np.zeros_like(distances)
 
             self.distances[np.arange(distances.shape[0]), max_indices] = 1
-            
+
         return self.distances, self.indexes
 
     def save_to_binary_file(self, output_file_path):
         with open(output_file_path, "wb") as f:
             f.write("{};{};{}\n".format(self.N, self.nn, 8).encode("ascii"))
-            f.write(0x01020304 .to_bytes(8, byteorder="little"))
+            f.write(0x01020304.to_bytes(8, byteorder="little"))
             for i in range(0, len(self.indexes)):
                 for j in range(0, len(self.indexes[i])):
                     if i != self.indexes[i][j]:

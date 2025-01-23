@@ -1,29 +1,31 @@
-from knn_graph.graph import Graph
-from knn_graph.faiss_generator import FaissGenerator
-from typing import Optional, Type, Dict, Any
+from typing import Any, Dict, Optional, Type
+
+import numpy as np
 import pandas as pd
 import torch
 from torch.optim import Optimizer
-import numpy as np
-import os
+
+from knn_graph.faiss_generator import FaissGenerator
+from knn_graph.graph import Graph
 
 
-class IVHD:
+class FVHD:
     def __init__(
-            self,
-            n_components: int = 2,
-            nn: int = 2,
-            rn: int = 1,
-            c: float = 0.1,
-            optimizer: Optional[Type[Optimizer]] = None,
-            optimizer_kwargs: Dict[str, Any] = None,
-            epochs: int = 200,
-            eta: float = 0.1,
-            device: str = "cpu",
-            graph_file: str = '',
-            autoadapt=False,
-            velocity_limit=False,
-            verbose=True) -> None:
+        self,
+        n_components: int = 2,
+        nn: int = 2,
+        rn: int = 1,
+        c: float = 0.1,
+        optimizer: Optional[Type[Optimizer]] = None,
+        optimizer_kwargs: Dict[str, Any] = None,
+        epochs: int = 200,
+        eta: float = 0.1,
+        device: str = "cpu",
+        graph_file: str = "",
+        autoadapt=False,
+        velocity_limit=False,
+        verbose=True,
+    ) -> None:
         self.n_components = n_components
         self.nn = nn
         self.rn = rn
@@ -40,7 +42,7 @@ class IVHD:
 
         self.autoadapt = autoadapt
         self.buffer_len = 10
-        self.curr_max_velo = torch.tensor(([0.0]*self.buffer_len))
+        self.curr_max_velo = torch.tensor(([0.0] * self.buffer_len))
         self.curr_max_velo_idx = 1
         self.velocity_limit = velocity_limit
         self.max_velocity = 1.0
@@ -59,7 +61,6 @@ class IVHD:
         nn = torch.tensor(graph.indexes.astype(np.int32))
         X = X.to(self.device)
         NN = nn.to(self.device)
-        # RN = RN.to(self.device)
         n = X.shape[0]
         RN = torch.randint(0, n, (n, self.rn)).to(self.device)
         NN = NN.reshape(-1)
@@ -70,9 +71,11 @@ class IVHD:
         else:
             return self.optimizer_method(X.shape[0], NN, RN)
 
-    def optimizer_method(self, N,  NN, RN):
+    def optimizer_method(self, N, NN, RN):
         if self.x is None:
-            self.x = torch.rand((N, 1, self.n_components), requires_grad=True, device=self.device)
+            self.x = torch.rand(
+                (N, 1, self.n_components), requires_grad=True, device=self.device
+            )
         optimizer = self.optimizer(params={self.x}, **self.optimizer_kwargs)
         for i in range(self.epochs):
             loss = self.__optimizer_step(optimizer, NN, RN)
@@ -87,17 +90,29 @@ class IVHD:
 
     def __optimizer_step(self, optimizer, NN, RN) -> np.ndarray:
         optimizer.zero_grad()
-        nn_diffs = self.x - torch.index_select(self.x, 0, NN).view(self.x.shape[0], -1, self.n_components)
-        rn_diffs = self.x - torch.index_select(self.x, 0, RN).view(self.x.shape[0], -1, self.n_components)
-        nn_dist = torch.sqrt(torch.sum((nn_diffs + 1e-8)*(nn_diffs + 1e-8), dim=-1, keepdim=True))
-        rn_dist = torch.sqrt(torch.sum((rn_diffs + 1e-8)*(rn_diffs + 1e-8), dim=-1, keepdim=True))
+        nn_diffs = self.x - torch.index_select(self.x, 0, NN).view(
+            self.x.shape[0], -1, self.n_components
+        )
+        rn_diffs = self.x - torch.index_select(self.x, 0, RN).view(
+            self.x.shape[0], -1, self.n_components
+        )
+        nn_dist = torch.sqrt(
+            torch.sum((nn_diffs + 1e-8) * (nn_diffs + 1e-8), dim=-1, keepdim=True)
+        )
+        rn_dist = torch.sqrt(
+            torch.sum((rn_diffs + 1e-8) * (rn_diffs + 1e-8), dim=-1, keepdim=True)
+        )
 
-        loss = torch.mean(nn_dist * nn_dist) + self.c * torch.mean((1 - rn_dist) * (1 - rn_dist))
+        loss = torch.mean(nn_dist * nn_dist) + self.c * torch.mean(
+            (1 - rn_dist) * (1 - rn_dist)
+        )
         loss.backward()
         optimizer.step()
         return loss
 
-    def force_directed_method(self, X: torch.Tensor, NN: torch.Tensor, RN: torch.Tensor) -> np.ndarray:
+    def force_directed_method(
+        self, X: torch.Tensor, NN: torch.Tensor, RN: torch.Tensor
+    ) -> np.ndarray:
         NN_new = NN.reshape(X.shape[0], self.nn, 1)
         NN_new = [NN_new for _ in range(self.n_components)]
         NN_new = torch.cat(NN_new, dim=-1).to(torch.long)
@@ -119,23 +134,36 @@ class IVHD:
         return self.x[:, 0].cpu().numpy()
 
     def __force_directed_step(self, NN, RN, NN_new, RN_new):
-        nn_diffs = self.x - torch.index_select(self.x, 0, NN).view(self.x.shape[0], -1, self.n_components)
-        rn_diffs = self.x - torch.index_select(self.x, 0, RN).view(self.x.shape[0], -1, self.n_components)
-        nn_dist = torch.sqrt(torch.sum((nn_diffs+1e-8)*(nn_diffs+1e-8), dim=-1, keepdim=True))
-        rn_dist = torch.sqrt(torch.sum((rn_diffs+1e-8)*(rn_diffs+1e-8), dim=-1, keepdim=True))
+        nn_diffs = self.x - torch.index_select(self.x, 0, NN).view(
+            self.x.shape[0], -1, self.n_components
+        )
+        rn_diffs = self.x - torch.index_select(self.x, 0, RN).view(
+            self.x.shape[0], -1, self.n_components
+        )
+        nn_dist = torch.sqrt(
+            torch.sum((nn_diffs + 1e-8) * (nn_diffs + 1e-8), dim=-1, keepdim=True)
+        )
+        rn_dist = torch.sqrt(
+            torch.sum((rn_diffs + 1e-8) * (rn_diffs + 1e-8), dim=-1, keepdim=True)
+        )
 
         f_nn, f_rn = self.__compute_forces(rn_dist, nn_diffs, rn_diffs, NN_new, RN_new)
 
-        f = -f_nn - self.c*f_rn
-        self.delta_x = self.a*self.delta_x + self.b*f
+        f = -f_nn - self.c * f_rn
+        self.delta_x = self.a * self.delta_x + self.b * f
 
         if self.velocity_limit or self.autoadapt:
-            squared_velocity = torch.sum(self.delta_x*self.delta_x, dim=-1)
+            squared_velocity = torch.sum(self.delta_x * self.delta_x, dim=-1)
             sqrt_velocity = torch.sqrt(squared_velocity)
 
         if self.velocity_limit:
-            self.delta_x[squared_velocity > self.max_velocity**2] *= \
-                self.max_velocity / sqrt_velocity[squared_velocity > self.max_velocity**2].reshape(-1, 1)
+            self.delta_x[
+                squared_velocity > self.max_velocity**2
+            ] *= self.max_velocity / sqrt_velocity[
+                squared_velocity > self.max_velocity**2
+            ].reshape(
+                -1, 1
+            )
 
         self.x += self.eta * self.delta_x
 
@@ -145,7 +173,7 @@ class IVHD:
         if self.velocity_limit:
             self.delta_x *= self.vel_dump
 
-        loss = torch.mean(nn_dist**2) + self.c*torch.mean((1-rn_dist)**2)
+        loss = torch.mean(nn_dist**2) + self.c * torch.mean((1 - rn_dist) ** 2)
         return loss
 
     def __autoadapt(self, sqrt_velocity):
@@ -162,8 +190,8 @@ class IVHD:
 
     def __compute_forces(self, rn_dist, nn_diffs, rn_diffs, NN_new, RN_new):
 
-        f_nn =  nn_diffs
-        f_rn =  (rn_dist-1)/(rn_dist + 1e-8) * rn_diffs
+        f_nn = nn_diffs
+        f_rn = (rn_dist - 1) / (rn_dist + 1e-8) * rn_diffs
 
         minus_f_nn = torch.zeros_like(f_nn).scatter_add_(src=f_nn, dim=0, index=NN_new)
         minus_f_rn = torch.zeros_like(f_rn).scatter_add_(src=f_rn, dim=0, index=RN_new)
