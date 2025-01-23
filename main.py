@@ -33,6 +33,12 @@ def load_dataset(name: str, n_samples: Optional[int] = None):
     X = dataset.data[:n_samples]
     N = len(X) if n_samples is None else n_samples
     X = X.reshape(N, -1) / 255.0
+
+    from sklearn.decomposition import PCA
+
+    pca = PCA(n_components=50)
+    X = torch.tensor(pca.fit_transform(X), dtype=torch.float32)
+
     Y = dataset.targets[:n_samples]
     return X, Y
 
@@ -64,25 +70,22 @@ if __name__ == "__main__":
     setup_ssl()
 
     DATASET_NAME = "mnist"
-    N_NEIGHBORS = 10
-    N_RANDOM = 1
-    DEVICE = "mps"
 
     X, Y = load_dataset(DATASET_NAME)
-    graph = create_or_load_graph(X, N_NEIGHBORS)
+    graph = create_or_load_graph(X, 5)
 
     fvhd = FVHD(
         n_components=2,
-        nn=N_NEIGHBORS,
-        rn=N_RANDOM,
-        c=0.01,
-        eta=0.02,
+        nn=5,
+        rn=2,
+        c=0.02,
+        eta=0.2,
         optimizer=None,
         optimizer_kwargs={"lr": 0.1},
-        epochs=3_000,
-        device=DEVICE,
-        velocity_limit=False,
-        autoadapt=False,
+        epochs=3000,
+        device="mps",
+        velocity_limit=True,
+        autoadapt=True,
     )
 
     embeddings = fvhd.fit_transform(X, graph)
