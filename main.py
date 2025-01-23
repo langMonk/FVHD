@@ -1,4 +1,5 @@
-import os
+import ssl
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,63 +8,82 @@ import torch
 import torchvision
 
 from fvhd import FVHD
-from knn_graph import FaissGenerator, Graph
-
-N = None
-NN = 10
-RN = 1
-DATASET_NAME = "emnist"
+from knn_graph import Graph, NeighborConfig, NeighborGenerator
 
 
-if __name__ == "__main__":
-    # dataset = torchvision.datasets.MNIST("mnist", train=True, download=True)
-    dataset = torchvision.datasets.EMNIST(
-        "emnist", split="balanced", train=True, download=True
-    )
-    X = dataset.data[:N]
-    if not N:
-        N = X.shape[0]
+def setup_ssl():
+    try:
+        _create_unverified_https_context = ssl._create_unverified_context
+    except AttributeError:
+        pass
+    else:
+        ssl._create_default_https_context = _create_unverified_https_context
+
+
+def load_dataset(name: str, n_samples: Optional[int] = None):
+    if name == "mnist":
+        dataset = torchvision.datasets.MNIST("mnist", train=True, download=True)
+    elif name == "emnist":
+        dataset = torchvision.datasets.EMNIST(
+            "emnist", split="balanced", train=True, download=True
+        )
+    else:
+        raise ValueError(f"Unsupported dataset: {name}")
+
+    X = dataset.data[:n_samples]
+    N = len(X) if n_samples is None else n_samples
     X = X.reshape(N, -1) / 255.0
-    Y = dataset.targets[:N]
+    Y = dataset.targets[:n_samples]
+    return X, Y
 
-    nn_path = f"./graph_files/{DATASET_NAME}_{X.shape[0]}_{NN}nn.bin"
 
-    fvhd = FVHD(
-        2,
-        NN,
-        RN,
-        c=0.05,
-        eta=0.02,
-        optimizer=None,
-        optimizer_kwargs={"lr": 0.1},
-        epochs=3_000,
-        device="mps",
-        velocity_limit=False,
-        autoadapt=False,
-        graph_file=nn_path,
-    )
+def create_or_load_graph(X: torch.Tensor, nn: int) -> Graph:
+    config = NeighborConfig(metric="euclidean")
+    df = pd.DataFrame(X.numpy())
+    generator = NeighborGenerator(df=df, config=config)
+    graph = generator.run(nn=nn)
+    return graph
 
-    rn = torch.randint(0, N, (N, RN))
 
-    if not os.path.exists(nn_path):
-        faiss_generator = FaissGenerator(pd.DataFrame(X.numpy()), cosine_metric=False)
-        faiss_generator.run(nn=NN)
-        faiss_generator.save_to_binary_file(nn_path)
+def visualize_embeddings(x: np.ndarray, y: torch.Tensor, dataset_name: str):
+    plt.switch_backend("TkAgg")
+    plt.figure(figsize=(16, 8))
+    plt.title(f"{dataset_name} 2d visualization")
 
-    graph = Graph()
-    graph.load_from_binary_file(nn_path, nn_count=NN)
-    nn = torch.tensor(graph.indexes.astype(np.int32))
-    print(f"NN shape: {nn.shape}")
-
-    fig = plt.figure(figsize=(16, 8))
-    plt.title(f"{DATASET_NAME} 2d visualization")
-
-    x = fvhd.fit_transform(X).cpu()
-
+    y = y.numpy()
     for i in range(10):
-        points = x[Y == i]
+        points = x[y == i]
         plt.scatter(
             points[:, 0], points[:, 1], label=f"{i}", marker=".", s=1, alpha=0.5
         )
     plt.legend()
     plt.show()
+
+
+if __name__ == "__main__":
+    setup_ssl()
+
+    DATASET_NAME = "mnist"
+    N_NEIGHBORS = 10
+    N_RANDOM = 1
+    DEVICE = "mps"
+
+    X, Y = load_dataset(DATASET_NAME)
+    graph = create_or_load_graph(X, N_NEIGHBORS)
+
+    fvhd = FVHD(
+        n_components=2,
+        nn=N_NEIGHBORS,
+        rn=N_RANDOM,
+        c=0.01,
+        eta=0.02,
+        optimizer=None,
+        optimizer_kwargs={"lr": 0.1},
+        epochs=3_000,
+        device=DEVICE,
+        velocity_limit=False,
+        autoadapt=False,
+    )
+
+    embeddings = fvhd.fit_transform(X, graph)
+    visualize_embeddings(embeddings, Y, DATASET_NAME)

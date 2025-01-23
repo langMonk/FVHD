@@ -1,11 +1,9 @@
 from typing import Any, Dict, Optional, Type
 
 import numpy as np
-import pandas as pd
 import torch
 from torch.optim import Optimizer
 
-from knn_graph.faiss_generator import FaissGenerator
 from knn_graph.graph import Graph
 
 
@@ -50,16 +48,9 @@ class FVHD:
         self.x = None
         self.delta_x = None
 
-    def fit_transform(self, X: torch.Tensor) -> np.ndarray:
-        faiss_generator = FaissGenerator(
-            pd.DataFrame(X.numpy()), cosine_metric=False, device=self.device
-        )
-        faiss_generator.run(nn=self.nn)
-        faiss_generator.save_to_binary_file(self.graph_file)
-        graph = Graph()
-        graph.load_from_binary_file(self.graph_file, nn_count=self.nn)
-        nn = torch.tensor(graph.indexes.astype(np.int32))
+    def fit_transform(self, X: torch.Tensor, graph: Graph) -> np.ndarray:
         X = X.to(self.device)
+        nn = torch.tensor(graph.indexes[:, : self.nn].astype(np.int32))
         NN = nn.to(self.device)
         n = X.shape[0]
         RN = torch.randint(0, n, (n, self.rn)).to(self.device)
@@ -68,8 +59,7 @@ class FVHD:
 
         if self.optimizer is None:
             return self.force_directed_method(X, NN, RN)
-        else:
-            return self.optimizer_method(X.shape[0], NN, RN)
+        return self.optimizer_method(X.shape[0], NN, RN)
 
     def optimizer_method(self, N, NN, RN):
         if self.x is None:
@@ -189,7 +179,6 @@ class FVHD:
             self.eta = 0.01
 
     def __compute_forces(self, rn_dist, nn_diffs, rn_diffs, NN_new, RN_new):
-
         f_nn = nn_diffs
         f_rn = (rn_dist - 1) / (rn_dist + 1e-8) * rn_diffs
 

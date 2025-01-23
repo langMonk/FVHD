@@ -1,51 +1,68 @@
-import struct
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
+
+from .base import GraphData
 
 
 class Graph:
-    def __init__(self):
-        self.indexes: Optional[np.ndarray] = None
-        self.distances: Optional[np.ndarray] = None
+    def __init__(self, data: Optional[GraphData] = None):
+        self.indexes: Optional[NDArray] = data.indexes if data else None
+        self.distances: Optional[NDArray] = data.distances if data else None
 
-    def get_neighbors(self, n: int) -> np.ndarray:
+    def get_neighbors(self, n: int) -> NDArray:
+        if self.indexes is None:
+            raise ValueError("Graph not initialized")
         return self.indexes[n]
 
-    def load_from_binary_file(self, input_file_path: str, nn_count: int) -> None:
-        with open(input_file_path, "rb") as f:
-            data_count, overall_nn_count, _ = [
-                int(x) for x in f.readline().decode("ascii").split(sep=";")
-            ]
+    def load_binary(self, path: Path, nn_count: int) -> None:
+        with open(path, "rb") as f:
+            self._read_header(f)
+            self._load_binary_data(f, nn_count)
 
-            assert 0x01020304 == int.from_bytes(f.read(8), byteorder="little")
+    @staticmethod
+    def _read_header(file) -> tuple[int, int]:
+        header = file.readline().decode("ascii").split(";")
+        data_count, overall_nn_count, _ = map(int, header)
 
-            self.indexes = np.empty([data_count, nn_count])
-            self.distances = np.empty([data_count, nn_count])
+        magic_number = int.from_bytes(file.read(8), byteorder="little")
+        if magic_number != 0x01020304:
+            raise ValueError("Invalid file format")
 
-            k = 0
-            j = 0
-            for i in range(0, data_count * overall_nn_count):
-                data = int.from_bytes(f.read(8), byteorder="little")
-                distance = struct.unpack("f", f.read(4))[0]
-                if i > 0 and i % overall_nn_count == 0:
-                    j = 0
-                    k += 1
-                if j < nn_count:
-                    self.indexes[k][j] = int(data)
-                    self.distances[k][j] = float(distance)
-                    j += 1
-                else:
-                    j += 1
+        return data_count, overall_nn_count
+
+    def _load_binary_data(self, file, nn_count: int) -> None:
+        data_count, overall_nn_count = self._read_header(file)
+
+        self.indexes = np.empty([data_count, nn_count], dtype=np.int64)
+        self.distances = np.empty([data_count, nn_count], dtype=np.float32)
+
+        total_entries = data_count * overall_nn_count
+        current_row = current_col = 0
+
+        for _ in range(total_entries):
+            idx = int.from_bytes(file.read(8), byteorder="little")
+            distance = np.frombuffer(file.read(4), dtype=np.float32)[0]
+
+            if current_col < nn_count:
+                self.indexes[current_row, current_col] = idx
+                self.distances[current_row, current_col] = distance
+
+            current_col += 1
+            if current_col == overall_nn_count:
+                current_row += 1
+                current_col = 0
 
     def get_conflicting_neighbors(self, labels: pd.Series) -> pd.Series:
-        conflicting_labels = []
+        if self.indexes is None:
+            raise ValueError("Graph not initialized")
 
-        for i in range(0, len(self.indexes)):
-            neighbors = self.indexes[i]
-            for neighbor in neighbors:
-                if labels[neighbor] != labels[i]:
-                    conflicting_labels.append(i)
+        label_array = labels.to_numpy()
+        source_labels = label_array[np.arange(len(self.indexes))]
+        neighbor_labels = label_array[self.indexes.astype(int)]
 
-        return pd.Series(conflicting_labels)
+        conflicts = np.any(source_labels[:, np.newaxis] != neighbor_labels, axis=1)
+        return pd.Series(np.where(conflicts)[0])
