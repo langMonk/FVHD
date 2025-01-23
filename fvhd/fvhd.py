@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.optim import Optimizer
 
-from knn_graph.graph import Graph
+from knn.graph import Graph
 
 
 class FVHD:

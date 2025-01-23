@@ -8,7 +8,7 @@ import torch
 import torchvision
 
 from fvhd import FVHD
-from knn_graph import Graph, NeighborConfig, NeighborGenerator
+from knn import Graph, NeighborConfig, NeighborGenerator
 
 
 def setup_ssl():
