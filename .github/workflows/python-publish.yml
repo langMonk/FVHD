@@ -16,13 +16,12 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.12"
 
       - name: Build release distributions
         run: |
-          # NOTE: put your own distribution build steps here.
-          python -m pip install build
-          python -m build
+          pip install poetry
+          poetry build
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4
@@ -38,13 +37,13 @@ jobs:
       id-token: write
     environment:
       name: pypi
+      url: https://pypi.org/p/fvhd
     steps:
       - name: Retrieve release distributions
         uses: actions/download-artifact@v4
         with:
           name: release-dists
           path: dist/
-
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
