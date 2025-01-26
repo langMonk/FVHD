@@ -24,7 +24,7 @@ class FVHD:
         autoadapt=False,
         velocity_limit=False,
         verbose=True,
-        mutual_neighbors_epoch: Optional[int] = None,
+        mutual_neighbors_epochs: Optional[int] = None,
     ) -> None:
         self.n_components = n_components
         self.nn = nn
@@ -50,7 +50,7 @@ class FVHD:
         self.vel_dump = 0.95
         self.x = None
         self.delta_x = None
-        self.mutual_neighbors_epoch = mutual_neighbors_epoch
+        self.mutual_neighbors_epochs = mutual_neighbors_epochs
 
     def fit_transform(self, X: torch.Tensor, graphs: list[Graph]) -> np.ndarray:
         x = X.to(self.device)
@@ -129,7 +129,7 @@ class FVHD:
         return self.x[:, 0].cpu().numpy()
 
     def __force_directed_step(self, NN, RN, NN_new, RN_new, graphs):
-        if self.mutual_neighbors_epoch and self._current_epoch >= self.mutual_neighbors_epoch:
+        if self.mutual_neighbors_epochs and self.epochs - self._current_epoch <= self.mutual_neighbors_epochs:
             graph = graphs[1]
             NN = torch.tensor(graph.indexes[:, : self.nn].astype(np.int32)).to(self.device).reshape(-1)
             NN_new = NN.reshape(self.x.shape[0], self.nn, 1)
@@ -175,7 +175,7 @@ class FVHD:
             self.eta = 0.01
 
     def __compute_forces(self, rn_dist, nn_diffs, rn_diffs, nn_dist, NN_new, RN_new):
-        if self.epochs - self._current_epoch > 25:
+        if self.mutual_neighbors_epochs and self.epochs - self._current_epoch <= self.mutual_neighbors_epochs:
             nn_attraction = 1.0 / (nn_dist + 1e-8)
             f_nn = nn_attraction * nn_diffs
         else:

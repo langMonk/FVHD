@@ -28,8 +28,8 @@ def load_dataset(name: str, n_samples: Optional[int] = None):
             "emnist", split="balanced", train=True, download=True
         )
     elif name == "fmnist":
-        dataset = torchvision.datasets.FMNIST(
-            "fmnist", split="balanced", train=True, download=True
+        dataset = torchvision.datasets.FashionMNIST(
+            "fashionMNIST", train=True, download=True
         )
     else:
         raise ValueError(f"Unsupported dataset: {name}")
@@ -81,7 +81,7 @@ if __name__ == "__main__":
         n_components=2,
         nn=5,
         rn=2,
-        c=0.1,
+        c=0.2,
         eta=0.2,
         optimizer=None,
         optimizer_kwargs={"lr": 0.1},
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         device="mps",
         velocity_limit=True,
         autoadapt=True,
-        mutual_neighbors_epoch=100
+        mutual_neighbors_epochs=300
     )
 
     embeddings = fvhd.fit_transform(X, [graph, mutual_graph])
