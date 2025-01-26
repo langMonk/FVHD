@@ -100,7 +100,7 @@ If you use this software in your research, please cite:
   title = {FVHD: Fast Visualization of High-Dimensional Data},
   year = {2025},
   publisher = {GitHub},
-  url = {https://github.com/username/fvhd}
+  url = {https://github.com/langMonk/fvhd}
 }
 ```
 

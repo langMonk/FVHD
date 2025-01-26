@@ -53,7 +53,7 @@ def create_or_load_graph(X: torch.Tensor, nn: int) -> Graph:
 
 def visualize_embeddings(x: np.ndarray, y: torch.Tensor, dataset_name: str):
     plt.switch_backend("TkAgg")
-    plt.figure(figsize=(16, 8))
+    plt.figure(figsize=(8, 8))
     plt.title(f"{dataset_name} 2d visualization")
 
     y = y.numpy()
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         eta=0.2,
         optimizer=None,
         optimizer_kwargs={"lr": 0.1},
-        epochs=3000,
+        epochs=2000,
         device="mps",
         velocity_limit=True,
         autoadapt=True,
