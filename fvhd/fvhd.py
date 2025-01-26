@@ -24,6 +24,7 @@ class FVHD:
         autoadapt=False,
         velocity_limit=False,
         verbose=True,
+        mutual_neighbors_epoch: Optional[int] = None,
     ) -> None:
         self.n_components = n_components
         self.nn = nn
@@ -49,9 +50,11 @@ class FVHD:
         self.vel_dump = 0.95
         self.x = None
         self.delta_x = None
+        self.mutual_neighbors_epoch = mutual_neighbors_epoch
 
-    def fit_transform(self, X: torch.Tensor, graph: Graph) -> np.ndarray:
+    def fit_transform(self, X: torch.Tensor, graphs: list[Graph]) -> np.ndarray:
         x = X.to(self.device)
+        graph = graphs[0]
         nn = torch.tensor(graph.indexes[:, : self.nn].astype(np.int32))
         nn = nn.to(self.device)
         n = x.shape[0]
@@ -60,7 +63,7 @@ class FVHD:
         rn = rn.reshape(-1)
 
         if self.optimizer is None:
-            return self.force_directed_method(x, nn, rn)
+            return self.force_directed_method(x, nn, rn, graphs)
         return self.optimizer_method(x.shape[0], nn, rn)
 
     def optimizer_method(self, N, NN, RN):
@@ -102,7 +105,7 @@ class FVHD:
         return loss
 
     def force_directed_method(
-        self, X: torch.Tensor, NN: torch.Tensor, RN: torch.Tensor
+        self, X: torch.Tensor, NN: torch.Tensor, RN: torch.Tensor, graphs: list[Graph]
     ) -> np.ndarray:
         nn_new = NN.reshape(X.shape[0], self.nn, 1)
         nn_new = [nn_new for _ in range(self.n_components)]
@@ -119,25 +122,23 @@ class FVHD:
 
         for i in range(self.epochs):
             self._current_epoch = i
-            loss = self.__force_directed_step(NN, RN, nn_new, rn_new)
+            loss = self.__force_directed_step(NN, RN, nn_new, rn_new, graphs)
             if self.verbose and i % 100 == 0:
                 print(f"\r{i} loss: {loss.item()}")
 
         return self.x[:, 0].cpu().numpy()
 
-    def __force_directed_step(self, NN, RN, NN_new, RN_new):
+    def __force_directed_step(self, NN, RN, NN_new, RN_new, graphs):
+        if self.mutual_neighbors_epoch and self._current_epoch >= self.mutual_neighbors_epoch:
+            graph = graphs[1]
+            NN = torch.tensor(graph.indexes[:, : self.nn].astype(np.int32)).to(self.device).reshape(-1)
+            NN_new = NN.reshape(self.x.shape[0], self.nn, 1)
+            NN_new = torch.cat([NN_new for _ in range(self.n_components)], dim=-1).to(torch.long)
+
         nn_diffs, nn_dist = self._calculate_distances(NN)
         rn_diffs, rn_dist = self._calculate_distances(RN)
 
-        f_nn, f_rn = self.__compute_forces(rn_dist, nn_diffs, rn_diffs, NN_new, RN_new)
-
-        if self.epochs - self._current_epoch < 25:
-            f_nn = 0.005 * nn_diffs / (nn_dist + 1e-8).expand(-1, -1, self.n_components)
-            target_dist = torch.ones_like(nn_dist)
-            mask = (nn_dist < target_dist).expand(-1, -1, self.n_components)
-            f_nn[mask] *= -1.0
-            f_nn = torch.sum(f_nn, dim=1, keepdim=True)
-            f_rn = torch.zeros_like(f_rn)
+        f_nn, f_rn = self.__compute_forces(rn_dist, nn_diffs, rn_diffs, nn_dist, NN_new, RN_new)
 
         f = -f_nn - self.c * f_rn
         self.delta_x = self.a * self.delta_x + self.b * f
@@ -145,9 +146,9 @@ class FVHD:
         sqrt_velocity = torch.sqrt(squared_velocity)
 
         if self.velocity_limit:
-            self.delta_x[squared_velocity > self.max_velocity**2] *= (
-                self.max_velocity
-                / sqrt_velocity[squared_velocity > self.max_velocity**2]
+            self.delta_x[squared_velocity > self.max_velocity ** 2] *= (
+                    self.max_velocity
+                    / sqrt_velocity[squared_velocity > self.max_velocity ** 2]
             ).reshape(-1, 1)
 
         self.x += self.eta * self.delta_x
@@ -158,7 +159,7 @@ class FVHD:
         if self.velocity_limit:
             self.delta_x *= self.vel_dump
 
-        loss = torch.mean(nn_dist**2) + self.c * torch.mean((1 - rn_dist) ** 2)
+        loss = torch.mean(nn_dist ** 2) + self.c * torch.mean((1 - rn_dist) ** 2)
         return loss
 
     def _auto_adaptation(self, sqrt_velocity):
@@ -173,9 +174,12 @@ class FVHD:
         if self.eta < 0.01:
             self.eta = 0.01
 
-    @staticmethod
-    def __compute_forces(rn_dist, nn_diffs, rn_diffs, NN_new, RN_new):
-        f_nn = nn_diffs
+    def __compute_forces(self, rn_dist, nn_diffs, rn_diffs, nn_dist, NN_new, RN_new):
+        if self.epochs - self._current_epoch > 25:
+            nn_attraction = 1.0 / (nn_dist + 1e-8)
+            f_nn = nn_attraction * nn_diffs
+        else:
+            f_nn = nn_diffs
         f_rn = (rn_dist - 1) / (rn_dist + 1e-8) * rn_diffs
 
         minus_f_nn = torch.zeros_like(f_nn).scatter_add_(src=f_nn, dim=0, index=NN_new)

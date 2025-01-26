@@ -27,6 +27,10 @@ def load_dataset(name: str, n_samples: Optional[int] = None):
         dataset = torchvision.datasets.EMNIST(
             "emnist", split="balanced", train=True, download=True
         )
+    elif name == "fmnist":
+        dataset = torchvision.datasets.FMNIST(
+            "fmnist", split="balanced", train=True, download=True
+        )
     else:
         raise ValueError(f"Unsupported dataset: {name}")
 
@@ -43,12 +47,11 @@ def load_dataset(name: str, n_samples: Optional[int] = None):
     return X, Y
 
 
-def create_or_load_graph(X: torch.Tensor, nn: int) -> Graph:
+def create_or_load_graph(X: torch.Tensor, nn: int) -> tuple[Graph, Graph]:
     config = NeighborConfig(metric="euclidean")
     df = pd.DataFrame(X.numpy())
     generator = NeighborGenerator(df=df, config=config)
-    graph = generator.run(nn=nn)
-    return graph
+    return generator.run(nn=nn)
 
 
 def visualize_embeddings(x: np.ndarray, y: torch.Tensor, dataset_name: str):
@@ -57,7 +60,7 @@ def visualize_embeddings(x: np.ndarray, y: torch.Tensor, dataset_name: str):
     plt.title(f"{dataset_name} 2d visualization")
 
     y = y.numpy()
-    for i in range(10):
+    for i in range(20):
         points = x[y == i]
         plt.scatter(
             points[:, 0], points[:, 1], label=f"{i}", marker=".", s=1, alpha=0.5
@@ -69,16 +72,16 @@ def visualize_embeddings(x: np.ndarray, y: torch.Tensor, dataset_name: str):
 if __name__ == "__main__":
     setup_ssl()
 
-    DATASET_NAME = "mnist"
+    DATASET_NAME = "emnist"
 
     X, Y = load_dataset(DATASET_NAME)
-    graph = create_or_load_graph(X, 5)
+    graph, mutual_graph = create_or_load_graph(X, 5)
 
     fvhd = FVHD(
         n_components=2,
         nn=5,
         rn=2,
-        c=0.02,
+        c=0.1,
         eta=0.2,
         optimizer=None,
         optimizer_kwargs={"lr": 0.1},
@@ -86,7 +89,8 @@ if __name__ == "__main__":
         device="mps",
         velocity_limit=True,
         autoadapt=True,
+        mutual_neighbors_epoch=100
     )
 
-    embeddings = fvhd.fit_transform(X, graph)
+    embeddings = fvhd.fit_transform(X, [graph, mutual_graph])
     visualize_embeddings(embeddings, Y, DATASET_NAME)

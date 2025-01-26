@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -30,17 +29,31 @@ class NeighborGenerator:
         self.X = df.to_numpy(dtype="float32")
         self.N = len(df)
 
-    def run(self, nn: int = 100) -> Graph:
+    def run(self, nn: int = 100) -> tuple[Graph, Graph]:
         self.nn = nn
-        nbrs = NearestNeighbors(
-            n_neighbors=nn + 1, metric=self.config.metric, n_jobs=self.config.n_jobs
-        ).fit(self.X)
-
-        start = datetime.now()
+        nbrs = NearestNeighbors(n_neighbors=nn + 1, metric=self.config.metric, n_jobs=self.config.n_jobs).fit(self.X)
         self.distances, self.indexes = nbrs.kneighbors(self.X)
-        print(f"Search completed in {datetime.now() - start}")
 
-        return Graph(GraphData(indexes=self.indexes, distances=self.distances))
+        adj_matrix = np.zeros((self.N, self.N), dtype=bool)
+        np.put_along_axis(adj_matrix, self.indexes, True, axis=1)
+        mutual_mask = adj_matrix & adj_matrix.T
+
+        mutual_indexes = np.zeros((self.N, nn + 1), dtype=np.int64)
+        mutual_distances = np.zeros((self.N, nn + 1), dtype=np.float32)
+
+        for i in range(self.N):
+            mutual_idx = np.where(mutual_mask[i])[0]
+            if len(mutual_idx) < nn + 1:
+                mutual_idx = np.pad(mutual_idx, (0, nn + 1 - len(mutual_idx)), mode='edge')
+            mutual_indexes[i] = mutual_idx[:nn + 1]
+
+            dist_mask = np.isin(self.indexes[i], mutual_idx[:nn + 1])
+            mutual_distances[i] = np.pad(self.distances[i][dist_mask],
+                                         (0, nn + 1 - np.sum(dist_mask)),
+                                         mode='edge')
+
+        return Graph(GraphData(indexes=self.indexes, distances=self.distances)), \
+            Graph(GraphData(indexes=mutual_indexes, distances=mutual_distances))
 
     def save_binary(self, path: Path) -> None:
         if self.indexes is None or self.distances is None:
