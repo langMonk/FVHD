@@ -8,7 +8,6 @@ import torch
 import torchvision
 
 from fvhd import FVHD
-from knn import Graph, NeighborConfig, NeighborGenerator
 
 
 def setup_ssl():
@@ -47,11 +46,7 @@ def load_dataset(name: str, n_samples: Optional[int] = None):
     return X, Y
 
 
-def create_or_load_graph(X: torch.Tensor, nn: int) -> tuple[Graph, Graph]:
-    config = NeighborConfig(metric="euclidean")
-    df = pd.DataFrame(X.numpy())
-    generator = NeighborGenerator(df=df, config=config)
-    return generator.run(nn=nn)
+
 
 
 def visualize_embeddings(x: np.ndarray, y: torch.Tensor, dataset_name: str):
@@ -75,7 +70,7 @@ if __name__ == "__main__":
     DATASET_NAME = "emnist"
 
     X, Y = load_dataset(DATASET_NAME)
-    graph, mutual_graph = create_or_load_graph(X, 5)
+    # graph, mutual_graph = create_or_load_graph(X, 5)
 
     fvhd = FVHD(
         n_components=2,
@@ -92,5 +87,5 @@ if __name__ == "__main__":
         mutual_neighbors_epochs=300
     )
 
-    embeddings = fvhd.fit_transform(X, [graph, mutual_graph])
+    embeddings = fvhd.fit_transform(X)
     visualize_embeddings(embeddings, Y, DATASET_NAME)

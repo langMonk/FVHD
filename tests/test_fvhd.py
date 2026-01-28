@@ -45,7 +45,7 @@ def test_basic_fvhd(device, optimizer):
         device=device,
     )
 
-    embeddings = torch.tensor(fvhd.fit_transform(X, graph=create_mock_graph(NN)))
+    embeddings = torch.tensor(fvhd.fit_transform(X, nn_idx=NN.numpy(), rn_idx=RN.numpy()))
     assert embeddings.shape == (6, 2)
 
     embeddings = embeddings.reshape(6, 1, 2)
@@ -102,7 +102,7 @@ def test_mnist_fvhd(device, optimizer, n_samples, nn_count, rn_count):
         velocity_limit=True,
     )
 
-    embeddings = fvhd.fit_transform(X, graph=create_mock_graph(NN))
+    embeddings = fvhd.fit_transform(X, nn_idx=NN.numpy(), rn_idx=RN.numpy())
     assert embeddings.shape == (n_samples, 2)
 
     embeddings = torch.tensor(embeddings).reshape(n_samples, 1, 2)
@@ -122,11 +122,3 @@ def test_mnist_fvhd(device, optimizer, n_samples, nn_count, rn_count):
 
     assert torch.mean(nn_dist).item() < 0.5
     assert abs(torch.mean(rn_dist).item() - 1.0) < 0.5
-
-
-def create_mock_graph(nn_indices):
-    from knn.base import GraphData
-    from knn.graph import Graph
-
-    distances = torch.ones_like(nn_indices, dtype=torch.float32)
-    return Graph(GraphData(indexes=nn_indices.numpy(), distances=distances.numpy()))
