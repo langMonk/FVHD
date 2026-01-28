@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -9,22 +9,56 @@ from .base import GraphData
 
 
 class Graph:
+    """
+    Represents a K-Nearest Neighbors graph.
+
+    Attributes:
+        indexes (Optional[NDArray]): Indices of neighbors for each data point.
+        distances (Optional[NDArray]): Distances to neighbors for each data point.
+    """
+
     def __init__(self, data: Optional[GraphData] = None):
+        """
+        Initializes the Graph with optional data.
+
+        Args:
+            data (Optional[GraphData]): Initial graph data containing indexes and distances.
+        """
         self.indexes: Optional[NDArray] = data.indexes if data else None
         self.distances: Optional[NDArray] = data.distances if data else None
 
     def get_neighbors(self, n: int) -> NDArray:
+        """
+        Retrieves the neighbors for the n-th data point.
+
+        Args:
+            n (int): Index of the data point.
+
+        Returns:
+            NDArray: Array of neighbor indices.
+
+        Raises:
+            ValueError: If the graph is not initialized.
+        """
         if self.indexes is None:
             raise ValueError("Graph not initialized")
         return self.indexes[n]
 
     def load_binary(self, path: Path, nn_count: int) -> None:
+        """
+        Loads graph data from a binary file.
+
+        Args:
+            path (Path): Path to the binary file.
+            nn_count (int): Number of nearest neighbors to load per point.
+        """
         with open(path, "rb") as f:
             self._read_header(f)
             self._load_binary_data(f, nn_count)
 
     @staticmethod
-    def _read_header(file) -> tuple[int, int]:
+    def _read_header(file) -> Tuple[int, int]:
+        """Reads and validates the file header."""
         header = file.readline().decode("ascii").split(";")
         data_count, overall_nn_count, _ = map(int, header)
 
@@ -35,6 +69,7 @@ class Graph:
         return data_count, overall_nn_count
 
     def _load_binary_data(self, file, nn_count: int) -> None:
+        """Loads the binary data body."""
         data_count, overall_nn_count = self._read_header(file)
 
         self.indexes = np.empty([data_count, nn_count], dtype=np.int64)
@@ -57,6 +92,18 @@ class Graph:
                 current_col = 0
 
     def get_conflicting_neighbors(self, labels: pd.Series) -> pd.Series:
+        """
+        Identifies data points whose neighbors have different labels.
+
+        Args:
+            labels (pd.Series): Labels for each data point.
+
+        Returns:
+            pd.Series: Indices of data points with conflicting neighbors.
+
+        Raises:
+            ValueError: If the graph is not initialized.
+        """
         if self.indexes is None:
             raise ValueError("Graph not initialized")
 

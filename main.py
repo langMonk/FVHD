@@ -67,10 +67,9 @@ def visualize_embeddings(x: np.ndarray, y: torch.Tensor, dataset_name: str):
 if __name__ == "__main__":
     setup_ssl()
 
-    DATASET_NAME = "emnist"
+    DATASET_NAME = "mnist"
 
     X, Y = load_dataset(DATASET_NAME)
-    # graph, mutual_graph = create_or_load_graph(X, 5)
 
     fvhd = FVHD(
         n_components=2,

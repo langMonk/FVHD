@@ -13,56 +13,58 @@ FVHD is a Python library for efficient visualization of high-dimensional data us
 
 ## Installation
 
-FVHD requires Python 3.12 and can be installed using Poetry:
+FVHD requires Python 3.12+. We recommend using [uv](https://docs.astral.sh/uv/) for dependency management:
 
-```bash
-poetry install
-```
+1.  **Install uv** (if missing):
+    ```bash
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
+
+2.  **Sync dependencies**:
+    ```bash
+    uv sync
+    ```
+
+3.  **Run scripts**:
+    ```bash
+    uv run python your_script.py
+    ```
 
 ## Quick Start
 
 ```python
 import torch
+import pandas as pd
 from fvhd import FVHD
 from knn import Graph, NeighborConfig, NeighborGenerator
 
-# Load your data as a torch.Tensor
-X = torch.rand(1000, 784)  # Example: 1000 samples of 784 dimensions
+X = torch.rand(1000, 784) 
+df = pd.DataFrame(X.numpy())
 
-# Create nearest neighbors graph
 config = NeighborConfig(metric="euclidean")
 generator = NeighborGenerator(df=df, config=config)
-graph = generator.run(nn=5)
+graph_knn, graph_mutual = generator.run(nn=5)
 
-# Initialize FVHD
 fvhd = FVHD(
-    n_components=2,  # Output dimensionality
-    nn=5,           # Number of nearest neighbors
-    rn=2,           # Number of random neighbors
-    c=0.1,        # Repulsion strength
-    eta=0.2,      # Learning rate
+    n_components=2,
+    nn=5,
+    rn=2,
+    c=0.1,
+    eta=0.2,
     epochs=3000,
-    device="cuda",  # Use GPU if available
+    device="cuda" if torch.cuda.is_available() else "cpu",
     velocity_limit=True,
     autoadapt=True
 )
 
-# Generate 2D embeddings
-embeddings = fvhd.fit_transform(X, graph)
+embeddings = fvhd.fit_transform(X, graph=graph_knn)
 ```
 
 ## Example with MNIST
 
 ```python
-from main import load_dataset, create_or_load_graph, visualize_embeddings
+from fvhd import FVHD
 
-# Load MNIST dataset
-X, Y = load_dataset("mnist")
-
-# Create nearest neighbors graph
-graph = create_or_load_graph(X, nn=5)
-
-# Initialize and run FVHD
 fvhd = FVHD(
     n_components=2,
     nn=5,
@@ -73,9 +75,7 @@ fvhd = FVHD(
     device="cuda"
 )
 
-# Generate and visualize embeddings
-embeddings = fvhd.fit_transform(X, graph)
-visualize_embeddings(embeddings, Y, "mnist")
+embeddings = fvhd.fit_transform(X)
 ```
 
 ## Parameters
@@ -85,8 +85,8 @@ visualize_embeddings(embeddings, Y, "mnist")
 - `rn`: Number of random neighbors (default: 1)
 - `c`: Repulsion strength coefficient (default: 0.1)
 - `eta`: Learning rate (default: 0.1)
-- `epochs`: Number of training epochs (default: 200)
-- `device`: Computation device ("cpu" or "cuda")
+- `epochs`: Number of optimization epochs (default: 200)
+- `device`: Computation device ("cpu", "cuda", "mps")
 - `autoadapt`: Enable automatic learning rate adaptation
 - `velocity_limit`: Enable velocity limiting for stability
 

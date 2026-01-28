@@ -1,7 +1,12 @@
 from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class FVHDConfig(BaseModel):
+    """
+    Configuration for FVHD algorithm.
+    """
     n_components: int = Field(default=2, description="Number of dimensions for the embedding.")
     nn: int = Field(default=5, description="Number of nearest neighbors.")
     rn: int = Field(default=2, description="Number of random neighbors.")
