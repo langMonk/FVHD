@@ -1,6 +1,6 @@
 [project]
 name = "fvhd"
-version = "0.0.2"
+version = "1.0.0"
 description = "Fast visualization of high-dimensional data"
 authors = [
     { name = "Bartosz Minch", email = "minch@agh.edu.pl" },
@@ -36,7 +36,7 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]

@@ -21,13 +21,9 @@ def load_dataset(name: str, n_samples: int | None = None):
     if name == "mnist":
         dataset = torchvision.datasets.MNIST("mnist", train=True, download=True)
     elif name == "emnist":
-        dataset = torchvision.datasets.EMNIST(
-            "emnist", split="balanced", train=True, download=True
-        )
+        dataset = torchvision.datasets.EMNIST("emnist", split="balanced", train=True, download=True)
     elif name == "fmnist":
-        dataset = torchvision.datasets.FashionMNIST(
-            "fashionMNIST", train=True, download=True
-        )
+        dataset = torchvision.datasets.FashionMNIST("fashionMNIST", train=True, download=True)
     else:
         raise ValueError(f"Unsupported dataset: {name}")
 
@@ -52,9 +48,7 @@ def visualize_embeddings(x: np.ndarray, y: torch.Tensor, dataset_name: str):
     y = y.numpy()
     for i in range(20):
         points = x[y == i]
-        plt.scatter(
-            points[:, 0], points[:, 1], label=f"{i}", marker=".", s=1, alpha=0.5
-        )
+        plt.scatter(points[:, 0], points[:, 1], label=f"{i}", marker=".", s=1, alpha=0.5)
     plt.legend()
     plt.show()
 
@@ -78,7 +72,7 @@ if __name__ == "__main__":
         device="mps",
         velocity_limit=True,
         autoadapt=True,
-        mutual_neighbors_epochs=300,
+        mutual_neighbors_epochs=100,
     )
 
     embeddings = fvhd.fit_transform(X)

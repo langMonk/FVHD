@@ -45,18 +45,12 @@ def test_basic_fvhd(device, optimizer):
         device=device,
     )
 
-    embeddings = torch.tensor(
-        fvhd.fit_transform(X, nn_idx=NN.numpy(), rn_idx=RN.numpy())
-    )
+    embeddings = torch.tensor(fvhd.fit_transform(X, nn_idx=NN.numpy(), rn_idx=RN.numpy()))
     assert embeddings.shape == (6, 2)
 
     embeddings = embeddings.reshape(6, 1, 2)
-    nn_diffs = embeddings - torch.index_select(embeddings, 0, NN.reshape(-1)).reshape(
-        6, -1, 2
-    )
-    rn_diffs = embeddings - torch.index_select(embeddings, 0, RN.reshape(-1)).reshape(
-        6, -1, 2
-    )
+    nn_diffs = embeddings - torch.index_select(embeddings, 0, NN.reshape(-1)).reshape(6, -1, 2)
+    rn_diffs = embeddings - torch.index_select(embeddings, 0, RN.reshape(-1)).reshape(6, -1, 2)
 
     nn_dist = torch.sqrt(torch.sum(nn_diffs**2 + 1e-8, dim=-1))
     rn_dist = torch.sqrt(torch.sum(rn_diffs**2 + 1e-8, dim=-1))
@@ -112,12 +106,12 @@ def test_mnist_fvhd(device, optimizer, n_samples, nn_count, rn_count):
     nn_tensor = NN.detach().clone()
     rn_tensor = RN.detach().clone()
 
-    nn_diffs = embeddings - torch.index_select(
-        embeddings, 0, nn_tensor.reshape(-1)
-    ).reshape(n_samples, -1, 2)
-    rn_diffs = embeddings - torch.index_select(
-        embeddings, 0, rn_tensor.reshape(-1)
-    ).reshape(n_samples, -1, 2)
+    nn_diffs = embeddings - torch.index_select(embeddings, 0, nn_tensor.reshape(-1)).reshape(
+        n_samples, -1, 2
+    )
+    rn_diffs = embeddings - torch.index_select(embeddings, 0, rn_tensor.reshape(-1)).reshape(
+        n_samples, -1, 2
+    )
 
     nn_dist = torch.sqrt(torch.sum(nn_diffs**2 + 1e-8, dim=-1))
     rn_dist = torch.sqrt(torch.sum(rn_diffs**2 + 1e-8, dim=-1))

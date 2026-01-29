@@ -8,7 +8,6 @@ FVHD is a Python library for efficient visualization of high-dimensional data us
 - Force-directed graph layout optimization
 - Support for both optimizer-based and force-directed methods
 - Automatic parameter adaptation
-- Built-in support for MNIST and EMNIST datasets
 - Efficient binary graph storage format
 
 ## Installation
@@ -38,7 +37,7 @@ import pandas as pd
 from fvhd import FVHD
 from knn import Graph, NeighborConfig, NeighborGenerator
 
-X = torch.rand(1000, 784) 
+X = torch.rand(1000, 784)
 df = pd.DataFrame(X.numpy())
 
 config = NeighborConfig(metric="euclidean")

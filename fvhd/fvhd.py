@@ -121,9 +121,7 @@ class FVHD(BaseEstimator, TransformerMixin):
         self.fit_transform(X, y, **kwargs)
         return self
 
-    def fit_transform(
-        self, X: np.ndarray | torch.Tensor, y=None, **fit_params
-    ) -> np.ndarray:
+    def fit_transform(self, X: np.ndarray | torch.Tensor, y=None, **fit_params) -> np.ndarray:
         """
         Fit the model to X and return the transformed data.
 
@@ -164,22 +162,18 @@ class FVHD(BaseEstimator, TransformerMixin):
         nn_tensor = torch.tensor(nn_idx[:, : self.nn].astype(np.int32)).to(self.device)
 
         if rn_idx is not None:
-            rn_tensor = torch.tensor(rn_idx[:, : self.rn].astype(np.int32)).to(
+            rn_tensor = torch.tensor(rn_idx[:, : self.rn].astype(np.int32)).to(self.device)
+        else:
+            rn_tensor = torch.randint(0, self._n_samples, (self._n_samples, self.rn)).to(
                 self.device
             )
-        else:
-            rn_tensor = torch.randint(
-                0, self._n_samples, (self._n_samples, self.rn)
-            ).to(self.device)
 
         nn_tensor_flat = nn_tensor.reshape(-1)
         rn_tensor_flat = rn_tensor.reshape(-1)
 
         if self.optimizer is None:
             # Ensure mutual_idx is not None for type checker
-            mutual_idx_safe = (
-                mutual_idx if mutual_idx is not None else np.array([], dtype=np.int64)
-            )
+            mutual_idx_safe = mutual_idx if mutual_idx is not None else np.array([], dtype=np.int64)
             self.embedding_ = self._force_directed_method(
                 x_data, nn_tensor_flat, rn_tensor_flat, mutual_idx_safe
             )
@@ -223,9 +217,7 @@ class FVHD(BaseEstimator, TransformerMixin):
                 if curr_len == 0:
                     padded_idx = np.array([i] * target_count, dtype=np.int64)
                 else:
-                    padded_idx = np.pad(
-                        mutual_idx, (0, target_count - curr_len), mode="edge"
-                    )
+                    padded_idx = np.pad(mutual_idx, (0, target_count - curr_len), mode="edge")
                 mutual_indexes[i] = padded_idx
             else:
                 mutual_indexes[i] = mutual_idx[:target_count]
@@ -239,9 +231,7 @@ class FVHD(BaseEstimator, TransformerMixin):
                     if d_len == 0:
                         padded_dists = np.zeros(target_count, dtype=np.float32)
                     else:
-                        padded_dists = np.pad(
-                            dists, (0, target_count - d_len), mode="edge"
-                        )
+                        padded_dists = np.pad(dists, (0, target_count - d_len), mode="edge")
                     mutual_distances[i] = padded_dists
                 else:
                     mutual_distances[i] = dists[:target_count]
@@ -251,14 +241,10 @@ class FVHD(BaseEstimator, TransformerMixin):
     def _optimizer_method(self, N, NN, RN):
         """Optimization using PyTorch optimizers."""
         if self._x is None:
-            self._x = torch.rand(
-                (N, 1, self.n_components), requires_grad=True, device=self.device
-            )
+            self._x = torch.rand((N, 1, self.n_components), requires_grad=True, device=self.device)
 
         if isinstance(self.optimizer, type):
-            optimizer_instance = self.optimizer(
-                params=[self._x], **(self.optimizer_kwargs or {})
-            )
+            optimizer_instance = self.optimizer(params=[self._x], **(self.optimizer_kwargs or {}))
         else:
             raise ValueError("Optimizer should be a class type")
 
@@ -279,9 +265,7 @@ class FVHD(BaseEstimator, TransformerMixin):
         nn_diffs, nn_dist = self._calculate_distances(NN)
         rn_diffs, rn_dist = self._calculate_distances(RN)
 
-        loss = torch.mean(nn_dist * nn_dist) + self.c * torch.mean(
-            (1 - rn_dist) * (1 - rn_dist)
-        )
+        loss = torch.mean(nn_dist * nn_dist) + self.c * torch.mean((1 - rn_dist) * (1 - rn_dist))
         loss.backward()
         optimizer.step()
         return loss
@@ -292,9 +276,7 @@ class FVHD(BaseEstimator, TransformerMixin):
             self._x.shape[0], -1, self.n_components
         )
         diffs = self._x - target_points
-        dist = torch.sqrt(
-            torch.sum((diffs + 1e-8) * (diffs + 1e-8), dim=-1, keepdim=True)
-        )
+        dist = torch.sqrt(torch.sum((diffs + 1e-8) * (diffs + 1e-8), dim=-1, keepdim=True))
         return diffs, dist
 
     def _force_directed_method(
@@ -323,22 +305,16 @@ class FVHD(BaseEstimator, TransformerMixin):
         """
         nn_new = NN.reshape(X_tensor.shape[0], self.nn, 1)
         nn_new = (
-            nn_new.expand(-1, -1, self.n_components)
-            .reshape(-1, self.n_components)
-            .to(torch.long)
+            nn_new.expand(-1, -1, self.n_components).reshape(-1, self.n_components).to(torch.long)
         )
 
         rn_new = RN.reshape(X_tensor.shape[0], self.rn, 1)
         rn_new = (
-            rn_new.expand(-1, -1, self.n_components)
-            .reshape(-1, self.n_components)
-            .to(torch.long)
+            rn_new.expand(-1, -1, self.n_components).reshape(-1, self.n_components).to(torch.long)
         )
 
         if self._x is None:
-            self._x = torch.rand(
-                (X_tensor.shape[0], 1, self.n_components), device=self.device
-            )
+            self._x = torch.rand((X_tensor.shape[0], 1, self.n_components), device=self.device)
         if self._delta_x is None:
             self._delta_x = torch.zeros_like(self._x)
 
@@ -362,9 +338,9 @@ class FVHD(BaseEstimator, TransformerMixin):
                 )
                 current_NN = mutual_nn
                 current_NN_new = current_NN.reshape(X_tensor.shape[0], self.nn, 1)
-                current_NN_new = current_NN_new.expand(
-                    -1, -1, self.n_components
-                ).reshape(-1, self.n_components)
+                current_NN_new = current_NN_new.expand(-1, -1, self.n_components).reshape(
+                    -1, self.n_components
+                )
                 current_NN_new = current_NN_new.to(torch.long)
 
             loss = self.__force_directed_step(current_NN, RN, current_NN_new, rn_new)
@@ -387,9 +363,7 @@ class FVHD(BaseEstimator, TransformerMixin):
         nn_diffs, nn_dist = self._calculate_distances(NN)
         rn_diffs, rn_dist = self._calculate_distances(RN)
 
-        f_nn, f_rn = self.__compute_forces(
-            rn_dist, nn_diffs, rn_diffs, nn_dist, NN_new, RN_new
-        )
+        f_nn, f_rn = self.__compute_forces(rn_dist, nn_diffs, rn_diffs, nn_dist, NN_new, RN_new)
 
         f = -f_nn - self.c * f_rn
         assert self._delta_x is not None, "self._delta_x must be initialized"
@@ -420,9 +394,7 @@ class FVHD(BaseEstimator, TransformerMixin):
         Automatically adapt learning rate (eta) based on system energy (velocity).
         """
         assert self._delta_x is not None, "self._delta_x must be initialized"
-        assert self._curr_max_velo is not None, (
-            "self._curr_max_velo must be initialized"
-        )
+        assert self._curr_max_velo is not None, "self._curr_max_velo must be initialized"
         v_avg = self._delta_x.mean()
         self._curr_max_velo[self._curr_max_velo_idx] = sqrt_velocity.max()
         self._curr_max_velo_idx = (self._curr_max_velo_idx + 1) % self._buffer_len
