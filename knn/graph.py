@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -17,15 +16,16 @@ class Graph:
         distances (Optional[NDArray]): Distances to neighbors for each data point.
     """
 
-    def __init__(self, data: Optional[GraphData] = None):
+    def __init__(self, data: GraphData | None = None):
         """
         Initializes the Graph with optional data.
 
         Args:
-            data (Optional[GraphData]): Initial graph data containing indexes and distances.
+            data (Optional[GraphData]): Initial graph data containing
+            indexes and distances.
         """
-        self.indexes: Optional[NDArray] = data.indexes if data else None
-        self.distances: Optional[NDArray] = data.distances if data else None
+        self.indexes: NDArray | None = data.indexes if data else None
+        self.distances: NDArray | None = data.distances if data else None
 
     def get_neighbors(self, n: int) -> NDArray:
         """
@@ -57,7 +57,7 @@ class Graph:
             self._load_binary_data(f, nn_count)
 
     @staticmethod
-    def _read_header(file) -> Tuple[int, int]:
+    def _read_header(file) -> tuple[int, int]:
         """Reads and validates the file header."""
         header = file.readline().decode("ascii").split(";")
         data_count, overall_nn_count, _ = map(int, header)

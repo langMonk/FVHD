@@ -1,9 +1,7 @@
 import ssl
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
 import torchvision
 
@@ -16,10 +14,10 @@ def setup_ssl():
     except AttributeError:
         pass
     else:
-        ssl._create_default_https_context = _create_unverified_https_context
+        ssl._create_default_https_context = _create_unverified_https_context  # type: ignore[assignment]
 
 
-def load_dataset(name: str, n_samples: Optional[int] = None):
+def load_dataset(name: str, n_samples: int | None = None):
     if name == "mnist":
         dataset = torchvision.datasets.MNIST("mnist", train=True, download=True)
     elif name == "emnist":
@@ -44,9 +42,6 @@ def load_dataset(name: str, n_samples: Optional[int] = None):
 
     Y = dataset.targets[:n_samples]
     return X, Y
-
-
-
 
 
 def visualize_embeddings(x: np.ndarray, y: torch.Tensor, dataset_name: str):
@@ -83,7 +78,7 @@ if __name__ == "__main__":
         device="mps",
         velocity_limit=True,
         autoadapt=True,
-        mutual_neighbors_epochs=300
+        mutual_neighbors_epochs=300,
     )
 
     embeddings = fvhd.fit_transform(X)

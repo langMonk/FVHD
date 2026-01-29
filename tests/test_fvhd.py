@@ -13,7 +13,7 @@ def setup_ssl():
     except AttributeError:
         pass
     else:
-        ssl._create_default_https_context = _create_unverified_https_context
+        ssl._create_default_https_context = _create_unverified_https_context  # type: ignore[assignment]
 
 
 setup_ssl()
@@ -39,13 +39,15 @@ def test_basic_fvhd(device, optimizer):
         rn=1,
         c=0.3,
         optimizer=optimizer,
-        optimizer_kwargs={"lr": 0.1} if optimizer else None,
+        optimizer_kwargs={"lr": 0.1} if optimizer else {},
         epochs=300,
         eta=0.1,
         device=device,
     )
 
-    embeddings = torch.tensor(fvhd.fit_transform(X, nn_idx=NN.numpy(), rn_idx=RN.numpy()))
+    embeddings = torch.tensor(
+        fvhd.fit_transform(X, nn_idx=NN.numpy(), rn_idx=RN.numpy())
+    )
     assert embeddings.shape == (6, 2)
 
     embeddings = embeddings.reshape(6, 1, 2)
@@ -95,7 +97,7 @@ def test_mnist_fvhd(device, optimizer, n_samples, nn_count, rn_count):
         rn=rn_count,
         c=0.4,
         optimizer=optimizer,
-        optimizer_kwargs={"lr": 0.1} if optimizer else None,
+        optimizer_kwargs={"lr": 0.1} if optimizer else {},
         epochs=600,
         eta=0.2,
         device=device,

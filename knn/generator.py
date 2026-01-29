@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -14,6 +13,7 @@ from .graph import Graph
 @dataclass
 class NeighborConfig:
     """Configuration for neighbor generation."""
+
     metric: str = "euclidean"
     n_jobs: int = -1
 
@@ -33,15 +33,15 @@ class NeighborGenerator:
         """
         self.config = config
         self._process_input_data(df)
-        self.indexes: Optional[NDArray] = None
-        self.distances: Optional[NDArray] = None
-        self.nn: Optional[int] = None
+        self.indexes: NDArray | None = None
+        self.distances: NDArray | None = None
+        self.nn: int | None = None
 
     def _process_input_data(self, df: pd.DataFrame) -> None:
         self.X = df.to_numpy(dtype="float32")
         self.N = len(df)
 
-    def run(self, nn: int = 100) -> Tuple[Graph, Graph]:
+    def run(self, nn: int = 100) -> tuple[Graph, Graph]:
         """
         Computes the nearest neighbor and mutual neighbor graphs.
 
@@ -53,52 +53,51 @@ class NeighborGenerator:
         """
         self.nn = nn
         nbrs = NearestNeighbors(
-            n_neighbors=nn + 1,
-            metric=self.config.metric,
-            n_jobs=self.config.n_jobs
+            n_neighbors=nn + 1, metric=self.config.metric, n_jobs=self.config.n_jobs
         ).fit(self.X)
         self.distances, self.indexes = nbrs.kneighbors(self.X)
-        
+
         adj_matrix = np.zeros((self.N, self.N), dtype=bool)
         np.put_along_axis(adj_matrix, self.indexes, True, axis=1)
-        
+
         mutual_mask = adj_matrix & adj_matrix.T
 
         mutual_indexes = np.zeros((self.N, nn + 1), dtype=np.int64)
         mutual_distances = np.zeros((self.N, nn + 1), dtype=np.float32)
 
         target_count = nn + 1
-        
+
         for i in range(self.N):
             row_mutual_indices = np.where(mutual_mask[i])[0]
-            
+
             curr_len = len(row_mutual_indices)
             if curr_len < target_count:
                 if curr_len == 0:
-                     padded_indices = np.array([i] * target_count, dtype=np.int64)
+                    padded_indices = np.array([i] * target_count, dtype=np.int64)
                 else:
-                     padded_indices = np.pad(row_mutual_indices, (0, target_count - curr_len), mode='edge')
+                    padded_indices = np.pad(
+                        row_mutual_indices, (0, target_count - curr_len), mode="edge"
+                    )
                 mutual_indexes[i] = padded_indices
             else:
                 mutual_indexes[i] = row_mutual_indices[:target_count]
-            
-            valid_mutual_subset = mutual_indexes[i][:curr_len] if curr_len < target_count else mutual_indexes[i]
-            
+
             neighbor_is_mutual = mutual_mask[i, self.indexes[i]]
             dists = self.distances[i][neighbor_is_mutual]
-            
+
             d_len = len(dists)
             if d_len < target_count:
                 if d_len == 0:
                     padded_dists = np.zeros(target_count, dtype=np.float32)
                 else:
-                    padded_dists = np.pad(dists, (0, target_count - d_len), mode='edge')
+                    padded_dists = np.pad(dists, (0, target_count - d_len), mode="edge")
                 mutual_distances[i] = padded_dists
             else:
                 mutual_distances[i] = dists[:target_count]
 
-        return Graph(GraphData(indexes=self.indexes, distances=self.distances)), \
-            Graph(GraphData(indexes=mutual_indexes, distances=mutual_distances))
+        return Graph(GraphData(indexes=self.indexes, distances=self.distances)), Graph(
+            GraphData(indexes=mutual_indexes, distances=mutual_distances)
+        )
 
     def save_binary(self, path: Path) -> None:
         """
@@ -120,13 +119,13 @@ class NeighborGenerator:
 
             mask = np.arange(len(self.indexes))[:, None] != self.indexes
             valid_idx_rows, valid_idx_cols = np.where(mask)
-            
+
             valid_indexes = self.indexes[valid_idx_rows, valid_idx_cols]
             valid_distances = self.distances[valid_idx_rows, valid_idx_cols]
-            
-            dt = np.dtype([('idx', '<i8'), ('dist', '<f4')])
+
+            dt = np.dtype([("idx", "<i8"), ("dist", "<f4")])
             combined = np.empty(len(valid_indexes), dtype=dt)
-            combined['idx'] = valid_indexes
-            combined['dist'] = valid_distances.astype(np.float32)
-            
+            combined["idx"] = valid_indexes
+            combined["dist"] = valid_distances.astype(np.float32)
+
             f.write(combined.tobytes())
