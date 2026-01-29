@@ -1,6 +1,6 @@
 [project]
 name = "fvhd"
-version = "1.0.0"
+version = "0.2.0"
 description = "Fast visualization of high-dimensional data"
 authors = [
     { name = "Bartosz Minch", email = "minch@agh.edu.pl" },
